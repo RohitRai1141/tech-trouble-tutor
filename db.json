@@ -12,17 +12,17 @@
     {
       "id": 1,
       "name": "Boot Issues",
-      "description": "Problems related to system startup and boot processes"
+      "description": "Problems with system startup and boot processes"
     },
     {
       "id": 2,
-      "name": "Network Problems",
-      "description": "Connectivity and network-related issues"
+      "name": "Display Issues",
+      "description": "Screen and display related problems"
     },
     {
       "id": 3,
-      "name": "Performance Issues",
-      "description": "System slowdowns and performance problems"
+      "name": "Network Issues",
+      "description": "Internet and network connectivity problems"
     }
   ],
   "questions": [
@@ -30,22 +30,22 @@
       "id": 1,
       "categoryId": 1,
       "keywords": ["boot", "power", "startup", "won't start"],
-      "title": "Computer won't boot or start",
-      "description": "System fails to power on or boot properly"
+      "title": "Computer won't boot",
+      "description": "Computer fails to start or power on"
     },
     {
       "id": 2,
       "categoryId": 2,
-      "keywords": ["internet", "wifi", "network", "connection"],
-      "title": "No internet connection",
-      "description": "Unable to connect to the internet or network"
+      "keywords": ["black screen", "no display", "monitor"],
+      "title": "Black screen issue",
+      "description": "Monitor shows no display or black screen"
     },
     {
       "id": 3,
       "categoryId": 3,
-      "keywords": ["slow", "performance", "lag", "freeze"],
-      "title": "Computer running slowly",
-      "description": "System performance is degraded or sluggish"
+      "keywords": ["internet", "wifi", "network", "connection"],
+      "title": "No internet connection",
+      "description": "Unable to connect to the internet"
     }
   ],
   "solutions": [
@@ -53,7 +53,7 @@
       "id": 1,
       "questionId": 1,
       "step": 1,
-      "text": "Check if the power cable is securely connected to both the computer and the power outlet.",
+      "text": "Check if the power cable is properly connected to both the computer and the wall outlet.",
       "type": "text",
       "helpfulLinks": []
     },
@@ -61,7 +61,7 @@
       "id": 2,
       "questionId": 1,
       "step": 2,
-      "text": "Try a different power outlet or power cable if available.",
+      "text": "Try a different power outlet to rule out electrical issues.",
       "type": "text",
       "helpfulLinks": []
     },
@@ -69,7 +69,7 @@
       "id": 3,
       "questionId": 1,
       "step": 3,
-      "text": "Press and hold the power button for 10 seconds, then try turning it on again.",
+      "text": "Press and hold the power button for 10 seconds to perform a hard reset.",
       "type": "text",
       "helpfulLinks": []
     },
@@ -77,7 +77,7 @@
       "id": 4,
       "questionId": 2,
       "step": 1,
-      "text": "Check if other devices can connect to the same network.",
+      "text": "Check that your monitor is properly connected to the computer via HDMI, VGA, or DVI cable.",
       "type": "text",
       "helpfulLinks": []
     },
@@ -85,7 +85,7 @@
       "id": 5,
       "questionId": 2,
       "step": 2,
-      "text": "Restart your router by unplugging it for 30 seconds, then plugging it back in.",
+      "text": "Make sure your monitor is powered on and set to the correct input source.",
       "type": "text",
       "helpfulLinks": []
     },
@@ -93,7 +93,7 @@
       "id": 6,
       "questionId": 3,
       "step": 1,
-      "text": "Check Task Manager (Ctrl+Shift+Esc) to see if any programs are using too much CPU or memory.",
+      "text": "Check if other devices can connect to the same network to isolate the issue.",
       "type": "text",
       "helpfulLinks": []
     }

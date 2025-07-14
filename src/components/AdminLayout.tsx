@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   FolderOpen, 
@@ -13,7 +13,6 @@ import {
   Bot
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -21,8 +20,8 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const { data: session, status } = useSession();
-  const router = useRouter();
-  const pathname = usePathname();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   if (status === 'loading') {
     return (
@@ -33,7 +32,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   }
 
   if (status === 'unauthenticated') {
-    router.push('/admin/login');
+    navigate('/admin/login');
     return null;
   }
 
@@ -67,12 +66,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
         <nav className="mt-6">
           <div className="px-3">
             {navigation.map((item) => {
-              const isActive = pathname === item.href;
+              const isActive = location.pathname === item.href;
               return (
-                <Link
+                <button
                   key={item.name}
-                  href={item.href}
-                  className={`flex items-center px-3 py-3 mb-1 rounded-lg text-sm font-medium transition-colors ${
+                  onClick={() => navigate(item.href)}
+                  className={`w-full flex items-center px-3 py-3 mb-1 rounded-lg text-sm font-medium transition-colors ${
                     isActive
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -80,7 +79,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
                 >
                   <item.icon className="w-5 h-5 mr-3" />
                   {item.name}
-                </Link>
+                </button>
               );
             })}
           </div>
