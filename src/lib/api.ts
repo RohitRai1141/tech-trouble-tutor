@@ -41,128 +41,265 @@ export interface Conversation {
   }>;
 }
 
+// Fallback data when JSON server is not available
+const fallbackQuestions: Question[] = [
+  {
+    id: 1,
+    categoryId: 1,
+    keywords: ['boot', 'power', 'startup', "won't start"],
+    title: "Computer won't boot",
+    description: "Computer fails to start or power on"
+  },
+  {
+    id: 2,
+    categoryId: 2,
+    keywords: ['black screen', 'no display', 'monitor'],
+    title: "Black screen issue",
+    description: "Monitor shows no display or black screen"
+  },
+  {
+    id: 3,
+    categoryId: 3,
+    keywords: ['internet', 'wifi', 'network', 'connection'],
+    title: "No internet connection",
+    description: "Unable to connect to the internet"
+  }
+];
+
+const fallbackSolutions: Solution[] = [
+  {
+    id: 1,
+    questionId: 1,
+    step: 1,
+    text: "Check if the power cable is properly connected to both the computer and the wall outlet.",
+    type: 'text',
+    helpfulLinks: []
+  },
+  {
+    id: 2,
+    questionId: 1,
+    step: 2,
+    text: "Try a different power outlet to rule out electrical issues.",
+    type: 'text',
+    helpfulLinks: []
+  },
+  {
+    id: 3,
+    questionId: 1,
+    step: 3,
+    text: "Press and hold the power button for 10 seconds to perform a hard reset.",
+    type: 'text',
+    helpfulLinks: []
+  },
+  {
+    id: 4,
+    questionId: 2,
+    step: 1,
+    text: "Check that your monitor is properly connected to the computer via HDMI, VGA, or DVI cable.",
+    type: 'text',
+    helpfulLinks: []
+  },
+  {
+    id: 5,
+    questionId: 2,
+    step: 2,
+    text: "Make sure your monitor is powered on and set to the correct input source.",
+    type: 'text',
+    helpfulLinks: []
+  },
+  {
+    id: 6,
+    questionId: 3,
+    step: 1,
+    text: "Check if other devices can connect to the same network to isolate the issue.",
+    type: 'text',
+    helpfulLinks: []
+  },
+  {
+    id: 7,
+    questionId: 3,
+    step: 2,
+    text: "Restart your router and modem by unplugging them for 30 seconds, then plugging them back in.",
+    type: 'text',
+    helpfulLinks: []
+  },
+  {
+    id: 8,
+    questionId: 3,
+    step: 3,
+    text: "Check your network adapter settings in Device Manager and ensure the driver is up to date.",
+    type: 'text',
+    helpfulLinks: []
+  }
+];
+
+// Helper function to handle API calls with fallback
+const apiCall = async <T>(url: string, options?: RequestInit): Promise<T> => {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers,
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.log('API call failed, using fallback data:', error);
+    throw error;
+  }
+};
+
 // API functions
 export const api = {
-  // Categories
-  getCategories: async (): Promise<Category[]> => {
-    const response = await fetch(`${API_BASE}/categories`);
-    return response.json();
-  },
-
-  createCategory: async (category: Omit<Category, 'id'>): Promise<Category> => {
-    const response = await fetch(`${API_BASE}/categories`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(category),
-    });
-    return response.json();
-  },
-
-  updateCategory: async (id: number, category: Partial<Category>): Promise<Category> => {
-    const response = await fetch(`${API_BASE}/categories/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(category),
-    });
-    return response.json();
-  },
-
-  deleteCategory: async (id: number): Promise<void> => {
-    await fetch(`${API_BASE}/categories/${id}`, { method: 'DELETE' });
-  },
-
   // Questions
   getQuestions: async (search?: string): Promise<Question[]> => {
-    const url = search ? `${API_BASE}/questions?q=${encodeURIComponent(search)}` : `${API_BASE}/questions`;
-    const response = await fetch(url);
-    return response.json();
+    try {
+      const url = search ? `${API_BASE}/questions?q=${encodeURIComponent(search)}` : `${API_BASE}/questions`;
+      return await apiCall<Question[]>(url);
+    } catch (error) {
+      console.log('Using fallback questions data');
+      return fallbackQuestions;
+    }
   },
 
   searchQuestions: async (query: string): Promise<Question[]> => {
-    const questions = await api.getQuestions();
-    const lowercaseQuery = query.toLowerCase();
-    
-    return questions.filter(question => 
-      question.keywords.some(keyword => 
-        keyword.toLowerCase().includes(lowercaseQuery)
-      ) ||
-      question.title.toLowerCase().includes(lowercaseQuery) ||
-      question.description.toLowerCase().includes(lowercaseQuery)
-    );
-  },
-
-  createQuestion: async (question: Omit<Question, 'id'>): Promise<Question> => {
-    const response = await fetch(`${API_BASE}/questions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(question),
-    });
-    return response.json();
-  },
-
-  updateQuestion: async (id: number, question: Partial<Question>): Promise<Question> => {
-    const response = await fetch(`${API_BASE}/questions/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(question),
-    });
-    return response.json();
-  },
-
-  deleteQuestion: async (id: number): Promise<void> => {
-    await fetch(`${API_BASE}/questions/${id}`, { method: 'DELETE' });
+    try {
+      const questions = await api.getQuestions();
+      const lowercaseQuery = query.toLowerCase();
+      
+      return questions.filter(question => 
+        question.keywords.some(keyword => 
+          keyword.toLowerCase().includes(lowercaseQuery)
+        ) ||
+        question.title.toLowerCase().includes(lowercaseQuery) ||
+        question.description.toLowerCase().includes(lowercaseQuery)
+      );
+    } catch (error) {
+      console.log('Using fallback search');
+      const lowercaseQuery = query.toLowerCase();
+      
+      return fallbackQuestions.filter(question => 
+        question.keywords.some(keyword => 
+          keyword.toLowerCase().includes(lowercaseQuery)
+        ) ||
+        question.title.toLowerCase().includes(lowercaseQuery) ||
+        question.description.toLowerCase().includes(lowercaseQuery)
+      );
+    }
   },
 
   // Solutions
   getSolutions: async (questionId?: number): Promise<Solution[]> => {
-    const url = questionId ? `${API_BASE}/solutions?questionId=${questionId}` : `${API_BASE}/solutions`;
-    const response = await fetch(url);
-    const solutions = await response.json();
-    return solutions.sort((a: Solution, b: Solution) => a.step - b.step);
+    try {
+      const url = questionId ? `${API_BASE}/solutions?questionId=${questionId}` : `${API_BASE}/solutions`;
+      const solutions = await apiCall<Solution[]>(url);
+      return solutions.sort((a: Solution, b: Solution) => a.step - b.step);
+    } catch (error) {
+      console.log('Using fallback solutions data');
+      const filtered = questionId ? fallbackSolutions.filter(s => s.questionId === questionId) : fallbackSolutions;
+      return filtered.sort((a, b) => a.step - b.step);
+    }
   },
 
   getSolutionStep: async (questionId: number, step: number): Promise<Solution | null> => {
-    const response = await fetch(`${API_BASE}/solutions?questionId=${questionId}&step=${step}`);
-    const solutions = await response.json();
-    return solutions[0] || null;
+    try {
+      const solutions = await api.getSolutions(questionId);
+      return solutions.find(s => s.step === step) || null;
+    } catch (error) {
+      console.log('Using fallback solution step data');
+      return fallbackSolutions.find(s => s.questionId === questionId && s.step === step) || null;
+    }
+  },
+
+  // Categories
+  getCategories: async (): Promise<Category[]> => {
+    try {
+      return await apiCall<Category[]>(`${API_BASE}/categories`);
+    } catch (error) {
+      console.log('Using fallback categories data');
+      return [
+        { id: 1, name: "Boot Issues", description: "Problems with system startup and boot processes" },
+        { id: 2, name: "Display Issues", description: "Screen and display related problems" },
+        { id: 3, name: "Network Issues", description: "Internet and network connectivity problems" }
+      ];
+    }
+  },
+
+  createCategory: async (category: Omit<Category, 'id'>): Promise<Category> => {
+    return await apiCall<Category>(`${API_BASE}/categories`, {
+      method: 'POST',
+      body: JSON.stringify(category),
+    });
+  },
+
+  updateCategory: async (id: number, category: Partial<Category>): Promise<Category> => {
+    return await apiCall<Category>(`${API_BASE}/categories/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(category),
+    });
+  },
+
+  deleteCategory: async (id: number): Promise<void> => {
+    await apiCall<void>(`${API_BASE}/categories/${id}`, { method: 'DELETE' });
+  },
+
+  createQuestion: async (question: Omit<Question, 'id'>): Promise<Question> => {
+    return await apiCall<Question>(`${API_BASE}/questions`, {
+      method: 'POST',
+      body: JSON.stringify(question),
+    });
+  },
+
+  updateQuestion: async (id: number, question: Partial<Question>): Promise<Question> => {
+    return await apiCall<Question>(`${API_BASE}/questions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(question),
+    });
+  },
+
+  deleteQuestion: async (id: number): Promise<void> => {
+    await apiCall<void>(`${API_BASE}/questions/${id}`, { method: 'DELETE' });
   },
 
   createSolution: async (solution: Omit<Solution, 'id'>): Promise<Solution> => {
-    const response = await fetch(`${API_BASE}/solutions`, {
+    return await apiCall<Solution>(`${API_BASE}/solutions`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(solution),
     });
-    return response.json();
   },
 
   updateSolution: async (id: number, solution: Partial<Solution>): Promise<Solution> => {
-    const response = await fetch(`${API_BASE}/solutions/${id}`, {
+    return await apiCall<Solution>(`${API_BASE}/solutions/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(solution),
     });
-    return response.json();
   },
 
   deleteSolution: async (id: number): Promise<void> => {
-    await fetch(`${API_BASE}/solutions/${id}`, { method: 'DELETE' });
+    await apiCall<void>(`${API_BASE}/solutions/${id}`, { method: 'DELETE' });
   },
 
   // Users
   getUserByEmail: async (email: string): Promise<User | null> => {
-    const response = await fetch(`${API_BASE}/users?email=${encodeURIComponent(email)}`);
-    const users = await response.json();
-    return users[0] || null;
+    try {
+      const users = await apiCall<User[]>(`${API_BASE}/users?email=${encodeURIComponent(email)}`);
+      return users[0] || null;
+    } catch (error) {
+      return null;
+    }
   },
 
   // Conversations
   saveConversation: async (conversation: Omit<Conversation, 'id'>): Promise<Conversation> => {
-    const response = await fetch(`${API_BASE}/conversations`, {
+    return await apiCall<Conversation>(`${API_BASE}/conversations`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(conversation),
     });
-    return response.json();
   },
 };

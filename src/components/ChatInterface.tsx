@@ -36,6 +36,7 @@ const ChatInterface: React.FC = () => {
       // Search for matching questions
       const matchingQuestions = await api.searchQuestions(userMessage);
 
+      // Simulate brief processing time for better UX
       setTimeout(async () => {
         dispatch({ type: 'SET_TYPING', payload: false });
 
@@ -45,19 +46,27 @@ const ChatInterface: React.FC = () => {
           dispatch({ type: 'SET_CURRENT_STEP', payload: 1 });
 
           // Get first solution step
-          const solution = await api.getSolutionStep(question.id, 1);
-          if (solution) {
+          try {
+            const solution = await api.getSolutionStep(question.id, 1);
+            if (solution) {
+              addMessage({
+                type: 'bot',
+                content: `I found a solution for "${question.title}". Let's try this first step:\n\n${solution.text}`,
+                questionId: question.id,
+                step: 1,
+                showActions: true,
+              });
+            } else {
+              addMessage({
+                type: 'bot',
+                content: "I found a matching issue but don't have specific steps available. Please contact support for further assistance.",
+              });
+            }
+          } catch (error) {
+            console.error('Error fetching solution step:', error);
             addMessage({
               type: 'bot',
-              content: `I found a solution for "${question.title}". Let's try this first step:\n\n${solution.text}`,
-              questionId: question.id,
-              step: 1,
-              showActions: true,
-            });
-          } else {
-            addMessage({
-              type: 'bot',
-              content: "I found a matching issue but don't have specific steps available. Please contact support for further assistance.",
+              content: "I found a matching issue but encountered an error retrieving the solution steps. Please try again or contact support.",
             });
           }
         } else {
@@ -66,12 +75,13 @@ const ChatInterface: React.FC = () => {
             content: "I couldn't find a specific solution for your issue. Could you try rephrasing your question or provide more details? For example, you could ask about 'boot issues', 'network problems', or 'performance issues'.",
           });
         }
-      }, 1000);
+      }, 800);
     } catch (error) {
+      console.error('Error in handleSendMessage:', error);
       dispatch({ type: 'SET_TYPING', payload: false });
       addMessage({
         type: 'bot',
-        content: "I'm having trouble processing your request right now. Please try again in a moment.",
+        content: "I'm having trouble processing your request right now. This might be because the support system is offline. Please try again in a moment, or try asking about common issues like 'computer won't start', 'no internet', or 'black screen'.",
       });
     }
   };
@@ -87,21 +97,31 @@ const ChatInterface: React.FC = () => {
     } else {
       // Try next step
       const nextStep = currentStepNum + 1;
-      const solution = await api.getSolutionStep(questionId, nextStep);
-      
-      if (solution) {
-        dispatch({ type: 'SET_CURRENT_STEP', payload: nextStep });
+      try {
+        const solution = await api.getSolutionStep(questionId, nextStep);
+        
+        if (solution) {
+          dispatch({ type: 'SET_CURRENT_STEP', payload: nextStep });
+          addMessage({
+            type: 'bot',
+            content: `Let's try the next step:\n\n${solution.text}`,
+            questionId: questionId,
+            step: nextStep,
+            showActions: true,
+          });
+        } else {
+          addMessage({
+            type: 'bot',
+            content: "I've exhausted all the troubleshooting steps I have for this issue. I recommend contacting technical support for further assistance. Is there anything else I can help you with?",
+          });
+          dispatch({ type: 'SET_CURRENT_QUESTION', payload: null });
+          dispatch({ type: 'SET_CURRENT_STEP', payload: 0 });
+        }
+      } catch (error) {
+        console.error('Error fetching next solution step:', error);
         addMessage({
           type: 'bot',
-          content: `Let's try the next step:\n\n${solution.text}`,
-          questionId: questionId,
-          step: nextStep,
-          showActions: true,
-        });
-      } else {
-        addMessage({
-          type: 'bot',
-          content: "I've exhausted all the troubleshooting steps I have for this issue. I recommend contacting technical support for further assistance. Is there anything else I can help you with?",
+          content: "I encountered an error while trying to get the next troubleshooting step. Please try starting over with your question or contact support directly.",
         });
         dispatch({ type: 'SET_CURRENT_QUESTION', payload: null });
         dispatch({ type: 'SET_CURRENT_STEP', payload: 0 });
