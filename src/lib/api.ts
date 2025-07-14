@@ -1,4 +1,3 @@
-
 const API_BASE = 'http://localhost:3001';
 
 export interface User {
@@ -46,23 +45,30 @@ const fallbackQuestions: Question[] = [
   {
     id: 1,
     categoryId: 1,
-    keywords: ['boot', 'power', 'startup', "won't start", 'turn on', 'power on'],
+    keywords: ['boot', 'power', 'startup', "won't start", 'turn on', 'power on', 'start up', 'starting', 'booting'],
     title: "Computer won't boot",
     description: "Computer fails to start or power on"
   },
   {
     id: 2,
     categoryId: 2,
-    keywords: ['black screen', 'no display', 'monitor', 'screen', 'display'],
+    keywords: ['black screen', 'no display', 'monitor', 'screen', 'display', 'blank screen', 'nothing showing'],
     title: "Black screen issue",
     description: "Monitor shows no display or black screen"
   },
   {
     id: 3,
     categoryId: 3,
-    keywords: ['internet', 'wifi', 'network', 'connection', 'online', 'network problems', 'network issues', 'no internet', 'cant connect'],
+    keywords: ['internet', 'wifi', 'network', 'connection', 'online', 'network problems', 'network issues', 'no internet', 'cant connect', 'connectivity', 'web', 'internet connection'],
     title: "No internet connection",
     description: "Unable to connect to the internet"
+  },
+  {
+    id: 4,
+    categoryId: 1,
+    keywords: ['performance', 'slow', 'sluggish', 'lag', 'freezing', 'hanging', 'running slow', 'performance issues'],
+    title: "Performance issues",
+    description: "Computer running slowly or having performance problems"
   }
 ];
 
@@ -155,26 +161,69 @@ const apiCall = async <T>(url: string, options?: RequestInit): Promise<T> => {
   }
 };
 
-// Improved search function
+// Enhanced AI-like search function
 const searchInText = (searchQuery: string, textToSearch: string): boolean => {
   const query = searchQuery.toLowerCase().trim();
   const text = textToSearch.toLowerCase();
+  
+  // Remove common filler words
+  const fillerWords = ['i', 'have', 'a', 'an', 'the', 'my', 'is', 'are', 'with', 'having', 'experiencing', 'problem', 'issue', 'trouble'];
+  const queryWords = query.split(/\s+/).filter(word => !fillerWords.includes(word) && word.length > 1);
+  
+  if (queryWords.length === 0) return false;
   
   // Direct substring match
   if (text.includes(query)) {
     return true;
   }
   
-  // Word-by-word matching
-  const queryWords = query.split(/\s+/);
-  const textWords = text.split(/\s+/);
+  // Check if any meaningful query word matches
+  return queryWords.some(queryWord => {
+    // Exact word match
+    if (text.includes(queryWord)) {
+      return true;
+    }
+    
+    // Partial match for longer words
+    if (queryWord.length >= 4) {
+      const textWords = text.split(/\s+/);
+      return textWords.some(textWord => 
+        textWord.includes(queryWord) || queryWord.includes(textWord)
+      );
+    }
+    
+    return false;
+  });
+};
+
+// Enhanced question matching with AI-like understanding
+const matchesQuestion = (question: Question, query: string): boolean => {
+  const lowercaseQuery = query.toLowerCase().trim();
   
-  // Check if all query words are found in the text
-  return queryWords.every(queryWord => 
-    textWords.some(textWord => 
-      textWord.includes(queryWord) || queryWord.includes(textWord)
-    )
+  // Check keywords with enhanced matching
+  const keywordMatch = question.keywords.some(keyword => 
+    searchInText(lowercaseQuery, keyword)
   );
+  
+  // Check title
+  const titleMatch = searchInText(lowercaseQuery, question.title);
+  
+  // Check description
+  const descriptionMatch = searchInText(lowercaseQuery, question.description);
+  
+  // Special pattern matching for common phrases
+  const patterns = [
+    { pattern: /network|internet|wifi|connection|online/i, questionId: 3 },
+    { pattern: /boot|start|power|turn.*on/i, questionId: 1 },
+    { pattern: /screen|display|monitor|black/i, questionId: 2 },
+    { pattern: /slow|performance|lag|freeze/i, questionId: 4 }
+  ];
+  
+  const patternMatch = patterns.some(p => 
+    p.pattern.test(query) && p.questionId === question.id
+  );
+  
+  return keywordMatch || titleMatch || descriptionMatch || patternMatch;
 };
 
 // API functions
@@ -201,22 +250,21 @@ export const api = {
   },
 
   filterQuestionsByQuery: (questions: Question[], query: string): Question[] => {
-    const lowercaseQuery = query.toLowerCase().trim();
+    const results = questions.filter(question => matchesQuestion(question, query));
     
-    return questions.filter(question => {
-      // Check keywords
-      const keywordMatch = question.keywords.some(keyword => 
-        searchInText(lowercaseQuery, keyword)
+    // If no results, try a more lenient search
+    if (results.length === 0) {
+      const words = query.toLowerCase().split(/\s+/).filter(word => word.length > 2);
+      return questions.filter(question => 
+        words.some(word => 
+          question.keywords.some(keyword => keyword.toLowerCase().includes(word)) ||
+          question.title.toLowerCase().includes(word) ||
+          question.description.toLowerCase().includes(word)
+        )
       );
-      
-      // Check title
-      const titleMatch = searchInText(lowercaseQuery, question.title);
-      
-      // Check description
-      const descriptionMatch = searchInText(lowercaseQuery, question.description);
-      
-      return keywordMatch || titleMatch || descriptionMatch;
-    });
+    }
+    
+    return results;
   },
 
   // Solutions
