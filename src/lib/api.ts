@@ -46,21 +46,21 @@ const fallbackQuestions: Question[] = [
   {
     id: 1,
     categoryId: 1,
-    keywords: ['boot', 'power', 'startup', "won't start"],
+    keywords: ['boot', 'power', 'startup', "won't start", 'turn on', 'power on'],
     title: "Computer won't boot",
     description: "Computer fails to start or power on"
   },
   {
     id: 2,
     categoryId: 2,
-    keywords: ['black screen', 'no display', 'monitor'],
+    keywords: ['black screen', 'no display', 'monitor', 'screen', 'display'],
     title: "Black screen issue",
     description: "Monitor shows no display or black screen"
   },
   {
     id: 3,
     categoryId: 3,
-    keywords: ['internet', 'wifi', 'network', 'connection'],
+    keywords: ['internet', 'wifi', 'network', 'connection', 'online', 'network problems', 'network issues', 'no internet', 'cant connect'],
     title: "No internet connection",
     description: "Unable to connect to the internet"
   }
@@ -155,6 +155,28 @@ const apiCall = async <T>(url: string, options?: RequestInit): Promise<T> => {
   }
 };
 
+// Improved search function
+const searchInText = (searchQuery: string, textToSearch: string): boolean => {
+  const query = searchQuery.toLowerCase().trim();
+  const text = textToSearch.toLowerCase();
+  
+  // Direct substring match
+  if (text.includes(query)) {
+    return true;
+  }
+  
+  // Word-by-word matching
+  const queryWords = query.split(/\s+/);
+  const textWords = text.split(/\s+/);
+  
+  // Check if all query words are found in the text
+  return queryWords.every(queryWord => 
+    textWords.some(textWord => 
+      textWord.includes(queryWord) || queryWord.includes(textWord)
+    )
+  );
+};
+
 // API functions
 export const api = {
   // Questions
@@ -171,27 +193,30 @@ export const api = {
   searchQuestions: async (query: string): Promise<Question[]> => {
     try {
       const questions = await api.getQuestions();
-      const lowercaseQuery = query.toLowerCase();
-      
-      return questions.filter(question => 
-        question.keywords.some(keyword => 
-          keyword.toLowerCase().includes(lowercaseQuery)
-        ) ||
-        question.title.toLowerCase().includes(lowercaseQuery) ||
-        question.description.toLowerCase().includes(lowercaseQuery)
-      );
+      return api.filterQuestionsByQuery(questions, query);
     } catch (error) {
       console.log('Using fallback search');
-      const lowercaseQuery = query.toLowerCase();
-      
-      return fallbackQuestions.filter(question => 
-        question.keywords.some(keyword => 
-          keyword.toLowerCase().includes(lowercaseQuery)
-        ) ||
-        question.title.toLowerCase().includes(lowercaseQuery) ||
-        question.description.toLowerCase().includes(lowercaseQuery)
-      );
+      return api.filterQuestionsByQuery(fallbackQuestions, query);
     }
+  },
+
+  filterQuestionsByQuery: (questions: Question[], query: string): Question[] => {
+    const lowercaseQuery = query.toLowerCase().trim();
+    
+    return questions.filter(question => {
+      // Check keywords
+      const keywordMatch = question.keywords.some(keyword => 
+        searchInText(lowercaseQuery, keyword)
+      );
+      
+      // Check title
+      const titleMatch = searchInText(lowercaseQuery, question.title);
+      
+      // Check description
+      const descriptionMatch = searchInText(lowercaseQuery, question.description);
+      
+      return keywordMatch || titleMatch || descriptionMatch;
+    });
   },
 
   // Solutions
