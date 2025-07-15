@@ -1,319 +1,179 @@
-
-'use client';
-
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, RotateCcw, Bot, User, Settings } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useChat } from '@/contexts/ChatContext';
-import { api } from '@/lib/api';
+import { Bot, Send, Settings, User, LogOut } from 'lucide-react';
+import { useChatContext } from '@/contexts/ChatContext';
+import { useAuth } from '@/contexts/AuthContext';
+import ThemeToggle from '@/components/ThemeToggle';
 
-const ChatInterface: React.FC = () => {
-  const { messages, addMessage, currentQuestion, currentStep, isTyping, dispatch, resetChat } = useChat();
-  const [inputValue, setInputValue] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+interface Message {
+  type: 'user' | 'bot';
+  content: string;
+  timestamp: string;
+}
+
+const ChatInterface = () => {
+  const [inputMessage, setInputMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const { getResponse } = useChatContext();
+  const { user, logout, isAdmin } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
-
-  useEffect(() => {
-    inputRef.current?.focus();
+    // Load initial messages or welcome message here
+    setMessages([{
+      type: 'bot',
+      content: "Hello! I'm here to help with your tech support questions. Type your question or question number (e.g., '1', '2') for instant help.",
+      timestamp: new Date().toLocaleTimeString()
+    }]);
   }, []);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputMessage.trim()) return;
 
-    const userMessage = inputValue.trim();
-    addMessage({ type: 'user', content: userMessage });
-    setInputValue('');
+    const userMessage: Message = {
+      type: 'user',
+      content: inputMessage,
+      timestamp: new Date().toLocaleTimeString()
+    };
 
-    // Set typing indicator
-    dispatch({ type: 'SET_TYPING', payload: true });
+    setMessages(prevMessages => [...prevMessages, userMessage]);
+    setInputMessage('');
+    setIsTyping(true);
 
     try {
-      // Check if user typed a number (for question indexing)
-      const questionNumber = parseInt(userMessage);
-      if (!isNaN(questionNumber) && questionNumber > 0) {
-        const questions = await api.getQuestions();
-        if (questions[questionNumber - 1]) {
-          const question = questions[questionNumber - 1];
-          dispatch({ type: 'SET_CURRENT_QUESTION', payload: question });
-          dispatch({ type: 'SET_CURRENT_STEP', payload: 1 });
-
-          try {
-            const solution = await api.getSolutionStep(question.id, 1);
-            if (solution) {
-              dispatch({ type: 'SET_TYPING', payload: false });
-              addMessage({
-                type: 'bot',
-                content: `Here's the solution for "${question.title}":\n\n${solution.text}`,
-                questionId: question.id,
-                step: 1,
-                showActions: true,
-              });
-              return;
-            }
-          } catch (error) {
-            console.error('Error fetching solution:', error);
-          }
-        }
-      }
-
-      // Search for matching questions
-      const matchingQuestions = await api.searchQuestions(userMessage);
-
-      // Simulate brief processing time for better UX
-      setTimeout(async () => {
-        dispatch({ type: 'SET_TYPING', payload: false });
-
-        if (matchingQuestions.length > 0) {
-          const question = matchingQuestions[0];
-          dispatch({ type: 'SET_CURRENT_QUESTION', payload: question });
-          dispatch({ type: 'SET_CURRENT_STEP', payload: 1 });
-
-          // Get first solution step
-          try {
-            const solution = await api.getSolutionStep(question.id, 1);
-            if (solution) {
-              addMessage({
-                type: 'bot',
-                content: `I found a solution for "${question.title}". Let's try this first step:\n\n${solution.text}`,
-                questionId: question.id,
-                step: 1,
-                showActions: true,
-              });
-            } else {
-              addMessage({
-                type: 'bot',
-                content: "I found a matching issue but don't have specific steps available. Please contact support for further assistance.",
-              });
-            }
-          } catch (error) {
-            console.error('Error fetching solution step:', error);
-            addMessage({
-              type: 'bot',
-              content: "I found a matching issue but encountered an error retrieving the solution steps. Please try again or contact support.",
-            });
-          }
-        } else {
-          // Show fallback message with examples
-          addMessage({
-            type: 'bot',
-            content: `I understand you're having a technical issue, but I couldn't find a specific solution in my knowledge base. Here are some examples of issues I can help with:
-
-• "My computer won't start after a Windows update"
-• "I can't connect to WiFi on my laptop"  
-• "Black screen on startup"
-• "Computer running very slow"
-
-Type the question or just the number (1, 2, 3, etc.) to get the answer.`,
-          });
-        }
-      }, 800);
+      const botResponse = await getResponse(inputMessage);
+      const botMessage: Message = {
+        type: 'bot',
+        content: botResponse,
+        timestamp: new Date().toLocaleTimeString()
+      };
+      setMessages(prevMessages => [...prevMessages, botMessage]);
     } catch (error) {
-      console.error('Error in handleSendMessage:', error);
-      dispatch({ type: 'SET_TYPING', payload: false });
-      addMessage({
+      console.error("Failed to get response:", error);
+      setMessages(prevMessages => [...prevMessages, {
         type: 'bot',
-        content: "I'm having trouble processing your request right now. This might be because the support system is offline. Please try again in a moment, or try asking about common issues like 'computer won't start', 'no internet', or 'black screen'.",
-      });
+        content: "Sorry, I encountered an error. Please try again.",
+        timestamp: new Date().toLocaleTimeString()
+      }]);
+    } finally {
+      setIsTyping(false);
     }
   };
 
-  const handleStepResponse = async (worked: boolean, questionId: number, currentStepNum: number) => {
-    if (worked) {
-      addMessage({
-        type: 'bot',
-        content: "Great! I'm glad that worked. Is there anything else I can help you with?",
-      });
-      dispatch({ type: 'SET_CURRENT_QUESTION', payload: null });
-      dispatch({ type: 'SET_CURRENT_STEP', payload: 0 });
-    } else {
-      // Try next step
-      const nextStep = currentStepNum + 1;
-      try {
-        const solution = await api.getSolutionStep(questionId, nextStep);
-        
-        if (solution) {
-          dispatch({ type: 'SET_CURRENT_STEP', payload: nextStep });
-          addMessage({
-            type: 'bot',
-            content: `Let's try the next step:\n\n${solution.text}`,
-            questionId: questionId,
-            step: nextStep,
-            showActions: true,
-          });
-        } else {
-          addMessage({
-            type: 'bot',
-            content: "I've exhausted all the troubleshooting steps I have for this issue. I recommend contacting technical support for further assistance. Is there anything else I can help you with?",
-          });
-          dispatch({ type: 'SET_CURRENT_QUESTION', payload: null });
-          dispatch({ type: 'SET_CURRENT_STEP', payload: 0 });
-        }
-      } catch (error) {
-        console.error('Error fetching next solution step:', error);
-        addMessage({
-          type: 'bot',
-          content: "I encountered an error while trying to get the next troubleshooting step. Please try starting over with your question or contact support directly.",
-        });
-        dispatch({ type: 'SET_CURRENT_QUESTION', payload: null });
-        dispatch({ type: 'SET_CURRENT_STEP', payload: 0 });
-      }
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
       {/* Fixed Header */}
-      <div className="bg-white shadow-sm border-b p-4 flex-shrink-0">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
               <Bot className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">Tech Support Assistant</h1>
-              <p className="text-sm text-gray-500">Here to help with your technical issues</p>
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">IT Support Assistant</h1>
+              <p className="text-sm text-gray-600 dark:text-gray-300">How can I help you today?</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={resetChat}
-              className="flex items-center space-x-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>New Chat</span>
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              className="flex items-center space-x-2"
-              onClick={() => window.location.href = '/admin'}
-            >
-              <Settings className="w-4 h-4" />
-              <span>Profile</span>
+          <div className="flex items-center space-x-4">
+            <ThemeToggle />
+            
+            {isAdmin && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => navigate('/admin/dashboard')}
+                className="flex items-center space-x-2"
+              >
+                <Settings className="w-4 h-4" />
+                <span>Admin Panel</span>
+              </Button>
+            )}
+            
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="text-sm">
+                <div className="font-medium text-gray-900 dark:text-white">{user?.name}</div>
+                <div className="text-gray-600 dark:text-gray-300">{isAdmin ? 'Admin' : 'User'}</div>
+              </div>
+            </div>
+            
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Scrollable Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-4xl mx-auto space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div className={`flex items-start space-x-3 max-w-xs lg:max-w-md ${message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                {/* Avatar */}
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  message.type === 'user' 
-                    ? 'bg-blue-600' 
-                    : 'bg-gray-600'
-                }`}>
-                  {message.type === 'user' ? (
-                    <User className="w-4 h-4 text-white" />
-                  ) : (
-                    <Bot className="w-4 h-4 text-white" />
-                  )}
-                </div>
-
-                {/* Message */}
-                <div className={`px-4 py-3 rounded-lg ${
-                  message.type === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-900 shadow-sm border'
-                }`}>
-                  <div className="whitespace-pre-wrap text-sm">
-                    {message.content}
+      {/* Scrollable Chat Area */}
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full max-w-4xl mx-auto flex flex-col">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'} animate-fade-in`}
+              >
+                <div
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    message.type === 'user'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
+                  }`}
+                >
+                  <div className="whitespace-pre-wrap">{message.content}</div>
+                  <div className="text-xs opacity-70 mt-1">
+                    {message.timestamp}
                   </div>
-                  
-                  {/* Action buttons for troubleshooting steps */}
-                  {message.showActions && message.questionId && message.step && (
-                    <div className="mt-3 flex space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleStepResponse(true, message.questionId!, message.step!)}
-                        className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
-                      >
-                        ✓ It worked
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleStepResponse(false, message.questionId!, message.step!)}
-                        className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
-                      >
-                        ✗ Still not working
-                      </Button>
+                </div>
+              </div>
+            ))}
+            {isTyping && (
+              <div className="flex justify-start animate-fade-in">
+                <div className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 px-4 py-2 rounded-lg">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                     </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Typing indicator */}
-          {isTyping && (
-            <div className="flex justify-start">
-              <div className="flex items-start space-x-3 max-w-xs lg:max-w-md">
-                <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-4 h-4 text-white" />
-                </div>
-                <div className="bg-white px-4 py-3 rounded-lg shadow-sm border">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <span className="text-sm text-gray-500">Assistant is typing...</span>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
+            )}
+          </div>
         </div>
       </div>
 
       {/* Fixed Footer */}
-      <div className="bg-white border-t p-4 flex-shrink-0">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 p-4 flex-shrink-0">
         <div className="max-w-4xl mx-auto">
-          <div className="flex space-x-3">
-            <div className="flex-1">
-              <Input
-                ref={inputRef}
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Describe your technical issue..."
-                className="w-full"
-                disabled={isTyping}
-              />
-            </div>
-            <Button 
-              onClick={handleSendMessage}
-              disabled={!inputValue.trim() || isTyping}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
+          <form onSubmit={handleSendMessage} className="flex space-x-4">
+            <Input
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              placeholder="Type your question here..."
+              className="flex-1 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+              disabled={isTyping}
+            />
+            <Button type="submit" disabled={!inputMessage.trim() || isTyping}>
               <Send className="w-4 h-4" />
             </Button>
-          </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Try asking about boot issues, network problems, or performance issues. You can also type numbers (1, 2, 3) for quick answers.
+          </form>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+            Type your question or question number (e.g., "1", "2") for instant help
           </p>
         </div>
       </div>
