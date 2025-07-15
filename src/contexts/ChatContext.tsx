@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { Question, Solution } from '@/lib/api';
+import { Question, Solution, api } from '@/lib/api';
 
 export interface ChatMessage {
   id: string;
@@ -84,6 +84,7 @@ interface ChatContextType extends ChatState {
   dispatch: React.Dispatch<ChatAction>;
   addMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   resetChat: () => void;
+  getResponse: (userInput: string) => Promise<string>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -112,11 +113,67 @@ export const ChatProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     dispatch({ type: 'RESET_CHAT' });
   };
 
+  const getResponse = async (userInput: string): Promise<string> => {
+    try {
+      // Check if input is a number for direct question access
+      const questionNumber = parseInt(userInput.trim());
+      if (!isNaN(questionNumber) && questionNumber > 0) {
+        const question = await api.getQuestionByIndex(questionNumber);
+        if (question) {
+          dispatch({ type: 'SET_CURRENT_QUESTION', payload: question });
+          dispatch({ type: 'SET_CURRENT_STEP', payload: 1 });
+          
+          const solutions = await api.getSolutions(question.id);
+          if (solutions.length > 0) {
+            const firstStep = solutions.find(s => s.step === 1);
+            return `**${question.title}**\n\n${firstStep?.text || 'Solution not found.'}\n\nWould you like to try this step?`;
+          }
+          return `Found question: ${question.title}\n\n${question.description}\n\nBut no solutions are available yet.`;
+        } else {
+          return `Question #${questionNumber} not found. Please try a different number or describe your issue.`;
+        }
+      }
+
+      // Search for matching questions
+      const matchingQuestions = await api.searchQuestions(userInput);
+      
+      if (matchingQuestions.length === 0) {
+        return "I couldn't find a specific solution for that issue. Could you try rephrasing your question or provide more details? You can also try typing a question number (1, 2, 3, etc.) to browse available topics.";
+      }
+
+      if (matchingQuestions.length === 1) {
+        const question = matchingQuestions[0];
+        dispatch({ type: 'SET_CURRENT_QUESTION', payload: question });
+        dispatch({ type: 'SET_CURRENT_STEP', payload: 1 });
+        
+        const solutions = await api.getSolutions(question.id);
+        if (solutions.length > 0) {
+          const firstStep = solutions.find(s => s.step === 1);
+          return `I found a solution for: **${question.title}**\n\n**Step 1:** ${firstStep?.text || 'Solution step not found.'}\n\nDid this help? Type "next" for the next step or "no" if you need different assistance.`;
+        }
+        return `I found: **${question.title}**\n\n${question.description}\n\nBut detailed steps aren't available yet.`;
+      }
+
+      // Multiple matches - show options
+      let response = "I found several possible solutions. Please choose one by typing the corresponding number:\n\n";
+      matchingQuestions.forEach((q, index) => {
+        response += `${index + 1}. ${q.title}\n`;
+      });
+      response += "\nOr describe your issue in more detail.";
+      
+      return response;
+    } catch (error) {
+      console.error('Error getting response:', error);
+      return "I'm sorry, I encountered an error while processing your request. Please try again.";
+    }
+  };
+
   const value: ChatContextType = {
     ...state,
     dispatch,
     addMessage,
     resetChat,
+    getResponse,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
