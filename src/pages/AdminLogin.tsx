@@ -22,7 +22,9 @@ const AdminLogin = () => {
     setError('');
 
     try {
+      console.log('Attempting login with:', email);
       const user = await api.getUserByEmail(email);
+      console.log('User found:', user);
       
       if (!user) {
         setError('User not found');
@@ -30,11 +32,13 @@ const AdminLogin = () => {
         return;
       }
 
-      // For demo purposes, we'll do simple password comparison
-      // In production, you'd use proper password hashing
-      if (user.password === password || password === 'admin123') {
+      // For demo purposes, we'll accept both the demo password and check actual stored password
+      const isValidPassword = password === 'admin123' || user.password === password;
+      
+      if (isValidPassword) {
         // Store user info in localStorage
         localStorage.setItem('currentUser', JSON.stringify(user));
+        console.log('Login successful, navigating to dashboard');
         
         // Check if user is admin
         if (user.email === 'admin@example.com') {
@@ -106,7 +110,9 @@ const AdminLogin = () => {
             </Button>
           </div>
           <div className="mt-4 text-xs text-gray-500 text-center">
-            Demo credentials: admin@example.com / admin123
+            <strong>Demo credentials:</strong><br />
+            Email: admin@example.com<br />
+            Password: admin123
           </div>
         </CardContent>
       </Card>

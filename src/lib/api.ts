@@ -41,6 +41,15 @@ export interface Conversation {
 }
 
 // Fallback data when JSON server is not available
+const fallbackUsers: User[] = [
+  {
+    id: 1,
+    email: "admin@example.com",
+    password: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+    name: "Admin User"
+  }
+];
+
 const fallbackQuestions: Question[] = [
   {
     id: 1,
@@ -387,7 +396,8 @@ export const api = {
       const users = await apiCall<User[]>(`${API_BASE}/users?email=${encodeURIComponent(email)}`);
       return users[0] || null;
     } catch (error) {
-      return null;
+      console.log('Using fallback user data');
+      return fallbackUsers.find(user => user.email === email) || null;
     }
   },
 
