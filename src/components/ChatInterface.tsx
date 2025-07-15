@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, RotateCcw, Bot, User } from 'lucide-react';
+import { Send, RotateCcw, Bot, User, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useChat } from '@/contexts/ChatContext';
@@ -33,6 +33,34 @@ const ChatInterface: React.FC = () => {
     dispatch({ type: 'SET_TYPING', payload: true });
 
     try {
+      // Check if user typed a number (for question indexing)
+      const questionNumber = parseInt(userMessage);
+      if (!isNaN(questionNumber) && questionNumber > 0) {
+        const questions = await api.getQuestions();
+        if (questions[questionNumber - 1]) {
+          const question = questions[questionNumber - 1];
+          dispatch({ type: 'SET_CURRENT_QUESTION', payload: question });
+          dispatch({ type: 'SET_CURRENT_STEP', payload: 1 });
+
+          try {
+            const solution = await api.getSolutionStep(question.id, 1);
+            if (solution) {
+              dispatch({ type: 'SET_TYPING', payload: false });
+              addMessage({
+                type: 'bot',
+                content: `Here's the solution for "${question.title}":\n\n${solution.text}`,
+                questionId: question.id,
+                step: 1,
+                showActions: true,
+              });
+              return;
+            }
+          } catch (error) {
+            console.error('Error fetching solution:', error);
+          }
+        }
+      }
+
       // Search for matching questions
       const matchingQuestions = await api.searchQuestions(userMessage);
 
@@ -70,9 +98,17 @@ const ChatInterface: React.FC = () => {
             });
           }
         } else {
+          // Show fallback message with examples
           addMessage({
             type: 'bot',
-            content: "I couldn't find a specific solution for your issue. Could you try rephrasing your question or provide more details? For example, you could ask about 'boot issues', 'network problems', or 'performance issues'.",
+            content: `I understand you're having a technical issue, but I couldn't find a specific solution in my knowledge base. Here are some examples of issues I can help with:
+
+• "My computer won't start after a Windows update"
+• "I can't connect to WiFi on my laptop"  
+• "Black screen on startup"
+• "Computer running very slow"
+
+Type the question or just the number (1, 2, 3, etc.) to get the answer.`,
           });
         }
       }, 800);
@@ -137,9 +173,9 @@ const ChatInterface: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b p-4">
+    <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 to-indigo-100">
+      {/* Fixed Header */}
+      <div className="bg-white shadow-sm border-b p-4 flex-shrink-0">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
@@ -150,19 +186,30 @@ const ChatInterface: React.FC = () => {
               <p className="text-sm text-gray-500">Here to help with your technical issues</p>
             </div>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={resetChat}
-            className="flex items-center space-x-2"
-          >
-            <RotateCcw className="w-4 h-4" />
-            <span>New Chat</span>
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={resetChat}
+              className="flex items-center space-x-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>New Chat</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="flex items-center space-x-2"
+              onClick={() => window.location.href = '/admin'}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Profile</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Messages */}
+      {/* Scrollable Messages Area */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="max-w-4xl mx-auto space-y-4">
           {messages.map((message) => (
@@ -242,8 +289,8 @@ const ChatInterface: React.FC = () => {
         </div>
       </div>
 
-      {/* Input */}
-      <div className="bg-white border-t p-4">
+      {/* Fixed Footer */}
+      <div className="bg-white border-t p-4 flex-shrink-0">
         <div className="max-w-4xl mx-auto">
           <div className="flex space-x-3">
             <div className="flex-1">
@@ -266,7 +313,7 @@ const ChatInterface: React.FC = () => {
             </Button>
           </div>
           <p className="text-xs text-gray-500 mt-2 text-center">
-            Try asking about boot issues, network problems, or performance issues
+            Try asking about boot issues, network problems, or performance issues. You can also type numbers (1, 2, 3) for quick answers.
           </p>
         </div>
       </div>

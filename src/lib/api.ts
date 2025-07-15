@@ -200,6 +200,12 @@ const searchInText = (searchQuery: string, textToSearch: string): boolean => {
 const matchesQuestion = (question: Question, query: string): boolean => {
   const lowercaseQuery = query.toLowerCase().trim();
   
+  // Check for exact number match first
+  const questionNumber = parseInt(query);
+  if (!isNaN(questionNumber)) {
+    return false; // Numbers are handled separately
+  }
+  
   // Check keywords with enhanced matching
   const keywordMatch = question.keywords.some(keyword => 
     searchInText(lowercaseQuery, keyword)
@@ -213,10 +219,10 @@ const matchesQuestion = (question: Question, query: string): boolean => {
   
   // Special pattern matching for common phrases
   const patterns = [
-    { pattern: /network|internet|wifi|connection|online/i, questionId: 3 },
-    { pattern: /boot|start|power|turn.*on/i, questionId: 1 },
-    { pattern: /screen|display|monitor|black/i, questionId: 2 },
-    { pattern: /slow|performance|lag|freeze/i, questionId: 4 }
+    { pattern: /network|internet|wifi|connection|online|connectivity/i, questionId: 3 },
+    { pattern: /boot|start|power|turn.*on|startup|booting/i, questionId: 1 },
+    { pattern: /screen|display|monitor|black.*screen|blank.*screen/i, questionId: 2 },
+    { pattern: /slow|performance|lag|freeze|sluggish|running.*slow/i, questionId: 4 }
   ];
   
   const patternMatch = patterns.some(p => 
@@ -239,8 +245,25 @@ export const api = {
     }
   },
 
+  getQuestionByIndex: async (index: number): Promise<Question | null> => {
+    try {
+      const questions = await api.getQuestions();
+      return questions[index - 1] || null;
+    } catch (error) {
+      console.log('Using fallback questions for index lookup');
+      return fallbackQuestions[index - 1] || null;
+    }
+  },
+
   searchQuestions: async (query: string): Promise<Question[]> => {
     try {
+      // Check if query is a number
+      const questionNumber = parseInt(query);
+      if (!isNaN(questionNumber) && questionNumber > 0) {
+        const question = await api.getQuestionByIndex(questionNumber);
+        return question ? [question] : [];
+      }
+
       const questions = await api.getQuestions();
       return api.filterQuestionsByQuery(questions, query);
     } catch (error) {
