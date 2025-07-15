@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Bot, Send, Settings, User, LogOut } from 'lucide-react';
-import { useChatContext } from '@/contexts/ChatContext';
+import { useChat } from '@/contexts/ChatContext';
 import { useAuth } from '@/contexts/AuthContext';
 import ThemeToggle from '@/components/ThemeToggle';
 
@@ -17,7 +17,7 @@ const ChatInterface = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  const { getResponse } = useChatContext();
+  const { getResponse } = useChat();
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
